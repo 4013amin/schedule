@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>برنامه هفتگی</title>
+    <style>
+        body {
+            font-family: 'Vazir', Tahoma, sans-serif;
+            background: linear-gradient(to top left, #f8f9fa, #e0e0e0);
+            margin: 0;
+            padding: 20px;
+            direction: rtl;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 40px;
+        }
+        .form-section {
+            margin-bottom: 50px;
+            text-align: center;
+        }
+        .form-section form {
+            display: inline-block;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .form-section button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .form-section button:hover {
+            background-color: #0056b3;
+        }
+        .schedule-section {
+            margin-bottom: 50px;
+        }
+        h2 {
+            color: #0056b3;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 15px;
+            text-align: right;
+            border-bottom: 1px solid #dee2e6;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+            font-weight: bold;
+        }
+        tr:last-child td {
+            border-bottom: none;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>برنامه هفتگی</h1>
+
+    <!-- فرم ثبت وظایف جدید -->
+    <div class="form-section">
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit">اضافه کردن وظیفه</button>
+        </form>
+    </div>
+
+    <!-- نمایش برنامه هفتگی -->
+    {% for day, tasks in grouped_tasks.items %}
+    <div class="schedule-section">
+        <h2>{{ day }}</h2>
+        <table>
+            <tr>
+                <th>زمان</th>
+                <th>فعالیت</th>
+                <th>وضعیت</th>
+            </tr>
+            {% for task in tasks %}
+            <tr>
+                <td>{{ task.time }}</td>
+                <td>{{ task.activity }}</td>
+                <td>{% if task.is_completed %}✔️{% else %}❌{% endif %}</td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+    {% endfor %}
+
+    <div class="footer">
+        © 2025 برنامه هفتگی
+    </div>
+
+</body>
+</html>
