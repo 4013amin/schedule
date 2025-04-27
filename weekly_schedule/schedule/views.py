@@ -4,10 +4,6 @@ from .models import WeeklyTask
 from .forms import WeeklyTaskForm
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
-
-# Create your views here.
-
-
 from django.shortcuts import render, redirect
 from .models import WeeklyTask
 from .forms import WeeklyTaskForm
@@ -16,6 +12,8 @@ from operator import itemgetter
 
 
 from .models import WeeklyTask
+# Create your views here.
+
 
 def run():
     tasks = [
@@ -75,6 +73,6 @@ def analyze_tasks(request):
 
 def toggle_task_status(request, task_id):
     task = get_object_or_404(WeeklyTask, id=task_id)
-    task.is_completed = not task.is_completed  # تغییر وضعیت انجام کار
+    task.is_completed = not task.is_completed 
     task.save()
     return JsonResponse({'status': 'success', 'is_completed': task.is_completed})

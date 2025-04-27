@@ -70,6 +70,10 @@
         tr:hover {
             background-color: #f1f1f1;
         }
+        .completed td {
+            text-decoration: line-through;
+            color: #888;
+        }
         .footer {
             text-align: center;
             margin-top: 50px;
@@ -102,10 +106,14 @@
                 <th>وضعیت</th>
             </tr>
             {% for task in tasks %}
-            <tr>
+            <tr id="task-{{ task.id }}" class="{% if task.is_completed %}completed{% endif %}">
                 <td>{{ task.time }}</td>
                 <td>{{ task.activity }}</td>
-                <td>{% if task.is_completed %}✔️{% else %}❌{% endif %}</td>
+                <td>
+                    <button class="status-btn" data-task-id="{{ task.id }}">
+                        {% if task.is_completed %}✔️{% else %}❌{% endif %}
+                    </button>
+                </td>
             </tr>
             {% endfor %}
         </table>
@@ -115,6 +123,38 @@
     <div class="footer">
         © 2025 برنامه هفتگی
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const buttons = document.querySelectorAll('.status-btn');
+            buttons.forEach(button => {
+                button.addEventListener('click', function () {
+                    const taskId = this.getAttribute('data-task-id');
+                    fetch(`/toggle-task/${taskId}/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}',
+                            'Content-Type': 'application/json',
+                        },
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            const row = document.getElementById(`task-${taskId}`);
+                            if (data.is_completed) {
+                                row.classList.add('completed');
+                                this.textContent = '✔️';
+                            } else {
+                                row.classList.remove('completed');
+                                this.textContent = '❌';
+                            }
+                        }
+                    })
+                    .catch(error => console.error('Error:', error));
+                });
+            });
+        });
+    </script>
 
 </body>
 </html>
