@@ -3,15 +3,16 @@ from django.http import JsonResponse
 from .models import WeeklyTask
 from .forms import WeeklyTaskForm
 from itertools import groupby
-from operator import itemgetter
-from openai import OpenAI
-from django.conf import settings
 from datetime import datetime
 from django.contrib import messages
 import json
+import requests
 
-# تنظیم کلاینت OpenAI بدون پروکسی
-client = OpenAI(api_key=settings.OPENAI_API_KEY)
+# پیکربندی اتصال به مدل هوش مصنوعی (لوکال یا آنلاین)
+USE_OLLAMA = True  # اگر از OpenAI آنلاین استفاده می‌کنی، این مقدار را False کن
+OLLAMA_URL = "http://localhost:11434/api/chat"
+OPENAI_URL = "https://api.openai.com/v1/chat/completions"
+OPENAI_API_KEY = "your-openai-api-key"
 
 def run():
     tasks = [
@@ -51,22 +52,19 @@ def weekly_schedule(request):
         form = WeeklyTaskForm()
 
     tasks = WeeklyTask.objects.filter(week_number=datetime.now().isocalendar().week).order_by('day', 'time')
-    grouped_tasks = {
-        day: list(items)
-        for day, items in groupby(tasks, key=lambda task: task.day)
-    }
+    grouped_tasks = {day: list(items) for day, items in groupby(tasks, key=lambda task: task.day)}
 
     return render(request, 'weekly_schedule.html', {'form': form, 'grouped_tasks': grouped_tasks})
 
 def analyze_tasks(request):
-    total_tasks = WeeklyTask.objects.filter(week_number=datetime.now().isocalendar().week).count()
-    completed_tasks = WeeklyTask.objects.filter(week_number=datetime.now().isocalendar().week, is_completed=True).count()
-    incomplete_tasks = total_tasks - completed_tasks
-
+    week = datetime.now().isocalendar().week
+    total = WeeklyTask.objects.filter(week_number=week).count()
+    completed = WeeklyTask.objects.filter(week_number=week, is_completed=True).count()
+    incomplete = total - completed
     return render(request, 'analyze_tasks.html', {
-        'total_tasks': total_tasks,
-        'completed_tasks': completed_tasks,
-        'incomplete_tasks': incomplete_tasks,
+        'total_tasks': total,
+        'completed_tasks': completed,
+        'incomplete_tasks': incomplete
     })
 
 def toggle_task_status(request, task_id):
@@ -78,58 +76,63 @@ def toggle_task_status(request, task_id):
 def generate_new_schedule(request):
     current_week = datetime.now().isocalendar().week
     last_week = current_week - 1
-    last_week_tasks = WeeklyTask.objects.filter(week_number=last_week)
-    task_summary = [
-        f"روز: {task.day}, زمان: {task.time}, فعالیت: {task.activity}, وضعیت: {'تکمیل‌شده' if task.is_completed else 'تکمیل‌نشده'}"
-        for task in last_week_tasks
+    last_tasks = WeeklyTask.objects.filter(week_number=last_week)
+
+    summary = [
+        f"روز: {t.day}, زمان: {t.time}, فعالیت: {t.activity}, وضعیت: {'تکمیل‌شده' if t.is_completed else 'تکمیل‌نشده'}"
+        for t in last_tasks
     ]
-    task_summary_text = "\n".join(task_summary) or "هیچ وظیفه‌ای برای هفته گذشته ثبت نشده است."
+    task_text = "\n".join(summary) or "هیچ وظیفه‌ای برای هفته گذشته ثبت نشده است."
 
     prompt = f"""
-    من یک برنامه هفتگی دارم که وظایفم را برای هر روز و زمان مشخص می‌کنم. در زیر وظایف هفته گذشته و وضعیت تکمیل آن‌ها آمده است:
-    {task_summary_text}
+    من یک برنامه هفتگی دارم که وظایفم را برای هر روز مشخص می‌کنم. در زیر وظایف هفته گذشته آمده است:
+    {task_text}
 
-    لطفاً با توجه به این داده‌ها، یک برنامه هفتگی جدید برای هفته آینده پیشنهاد بده. برنامه باید:
-    - شامل وظایف برای روزهای شنبه تا جمعه باشد.
-    - وظایفی که تکمیل نشده‌اند را با اولویت بالاتر یا زمان‌بندی بهتر قرار دهد.
-    - زمان‌بندی منطقی و مشابه هفته قبل داشته باشد.
-    - فعالیت‌های جدید یا بهینه‌شده پیشنهاد دهد اگر لازم است.
-    - فرمت خروجی باید به صورت لیست JSON باشد، مثل این:
+    لطفاً برنامه‌ای برای هفته آینده پیشنهاد بده. خروجی به فرمت JSON باشد:
     [
-        {{"day": "شنبه", "time": "7:00 - 8:00", "activity": "فعالیت پیشنهادی"}},
+        {{"day": "شنبه", "time": "8:00 - 10:00", "activity": "فعالیت پیشنهادی"}},
         ...
     ]
     """
 
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant for creating optimized weekly schedules."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=1500,
-            temperature=0.7,
-        )
-        new_schedule = response.choices[0].message.content.strip()
+        if USE_OLLAMA:
+            response = requests.post(OLLAMA_URL, json={
+                "model": "llama3",
+                "messages": [
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": prompt}
+                ]
+            })
+        else:
+            response = requests.post(OPENAI_URL, headers={
+                "Authorization": f"Bearer {OPENAI_API_KEY}"
+            }, json={
+                "model": "gpt-4",
+                "messages": [
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.7,
+                "max_tokens": 1500
+            })
 
-        try:
-            new_tasks = json.loads(new_schedule)
-            next_week = current_week + 1
+        if response.status_code == 200:
+            result = response.json()
+            content = result["choices"][0]["message"]["content"].strip()
+            new_tasks = json.loads(content)
             for task in new_tasks:
                 WeeklyTask.objects.create(
                     day=task["day"],
                     time=task["time"],
                     activity=task["activity"],
-                    week_number=next_week
+                    week_number=current_week + 1
                 )
-            messages.success(request, 'برنامه جدید برای هفته آینده با موفقیت ایجاد شد.')
-        except json.JSONDecodeError:
-            messages.error(request, 'خطا در پردازش پاسخ ChatGPT. لطفاً دوباره امتحان کنید.')
-            return redirect('weekly_schedule')
+            messages.success(request, 'برنامه جدید با موفقیت ایجاد شد.')
+        else:
+            messages.error(request, f"خطا از سمت مدل: {response.status_code} - {response.text}")
 
     except Exception as e:
-        messages.error(request, f'خطا در ارتباط با ChatGPT: {str(e)}')
-        return redirect('weekly_schedule')
+        messages.error(request, f"خطا در ارتباط با مدل: {str(e)}")
 
     return redirect('weekly_schedule')
