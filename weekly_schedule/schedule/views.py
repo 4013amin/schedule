@@ -8,11 +8,17 @@ from django.contrib import messages
 import json
 import requests
 
-# پیکربندی اتصال به مدل هوش مصنوعی (لوکال یا آنلاین)
-USE_OLLAMA = True  # اگر از OpenAI آنلاین استفاده می‌کنی، این مقدار را False کن
+USE_OLLAMA = False  
 OLLAMA_URL = "http://localhost:11434/api/chat"
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 OPENAI_API_KEY = "your-openai-api-key"
+
+PROXIES = {
+    "http": "http://proxy.404.com:port", 
+    "https": "http://proxy.404.com:port",  
+}
+
+PROXIES = None
 
 def run():
     tasks = [
@@ -103,7 +109,7 @@ def generate_new_schedule(request):
                     {"role": "system", "content": "You are a helpful assistant."},
                     {"role": "user", "content": prompt}
                 ]
-            })
+            }, proxies=PROXIES)
         else:
             response = requests.post(OPENAI_URL, headers={
                 "Authorization": f"Bearer {OPENAI_API_KEY}"
@@ -115,7 +121,7 @@ def generate_new_schedule(request):
                 ],
                 "temperature": 0.7,
                 "max_tokens": 1500
-            })
+            }, proxies=PROXIES)
 
         if response.status_code == 200:
             result = response.json()
