@@ -8,17 +8,9 @@ from django.contrib import messages
 import json
 import requests
 
-USE_OLLAMA = False  
-OLLAMA_URL = "http://localhost:11434/api/chat"
-OPENAI_URL = "https://api.openai.com/v1/chat/completions"
-OPENAI_API_KEY = "your-openai-api-key"
-
-PROXIES = {
-    "http": "http://proxy.404.com:port", 
-    "https": "http://proxy.404.com:port",  
-}
-
-PROXIES = None
+# تنظیمات DeepSeek
+DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
+DEEPSEEK_API_KEY = "sk-0f27c7ec741e4a8c9772b14b1eeee1ac"
 
 def run():
     tasks = [
@@ -31,15 +23,6 @@ def run():
         {"day": "شنبه", "time": "19:00 - 21:00", "activity": "کار روی پروژه پت شاپ", "week_number": 1},
         {"day": "شنبه", "time": "21:00 - 22:00", "activity": "مرور برنامه‌های روز بعد + استراحت", "week_number": 1},
         {"day": "شنبه", "time": "22:00", "activity": "خواب", "week_number": 1},
-        {"day": "پنجشنبه", "time": "8:00 - 12:00", "activity": "تمرکز کامل روی پروژه پت شاپ", "week_number": 1},
-        {"day": "پنجشنبه", "time": "12:00 - 13:00", "activity": "ناهار", "week_number": 1},
-        {"day": "پنجشنبه", "time": "13:00 - 16:00", "activity": "تمرین عمیق روی جنگو یا جت پک کامپوز", "week_number": 1},
-        {"day": "پنجشنبه", "time": "16:00 - 19:00", "activity": "درس دانشگاه یا پروژه‌های دانشگاهی", "week_number": 1},
-        {"day": "پنجشنبه", "time": "شب", "activity": "فیلم / کتاب / سرگرمی", "week_number": 1},
-        {"day": "جمعه", "time": "9:00 - 11:00", "activity": "مرور هفته گذشته و برنامه‌ریزی هفته آینده", "week_number": 1},
-        {"day": "جمعه", "time": "11:00 - 14:00", "activity": "وقت برای خانواده یا تفریح", "week_number": 1},
-        {"day": "جمعه", "time": "14:00 - 17:00", "activity": "مطالعه تکنیکال سبک", "week_number": 1},
-        {"day": "جمعه", "time": "17:00 به بعد", "activity": "استراحت کامل یا وقت آزاد", "week_number": 1},
     ]
     for task in tasks:
         WeeklyTask.objects.get_or_create(
@@ -102,26 +85,18 @@ def generate_new_schedule(request):
     """
 
     try:
-        if USE_OLLAMA:
-            response = requests.post(OLLAMA_URL, json={
-                "model": "llama3",
-                "messages": [
-                    {"role": "system", "content": "You are a helpful assistant."},
-                    {"role": "user", "content": prompt}
-                ]
-            }, proxies=PROXIES)
-        else:
-            response = requests.post(OPENAI_URL, headers={
-                "Authorization": f"Bearer {OPENAI_API_KEY}"
-            }, json={
-                "model": "gpt-4",
-                "messages": [
-                    {"role": "system", "content": "You are a helpful assistant."},
-                    {"role": "user", "content": prompt}
-                ],
-                "temperature": 0.7,
-                "max_tokens": 1500
-            }, proxies=PROXIES)
+        # ارسال درخواست به DeepSeek
+        response = requests.post(DEEPSEEK_URL, headers={
+            "Authorization": f"Bearer {DEEPSEEK_API_KEY}"
+        }, json={
+            "model": "deepseek-gpt",  # نام صحیح مدل از مستندات
+            "messages": [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.7,
+            "max_tokens": 1500
+        })
 
         if response.status_code == 200:
             result = response.json()
@@ -136,9 +111,9 @@ def generate_new_schedule(request):
                 )
             messages.success(request, 'برنامه جدید با موفقیت ایجاد شد.')
         else:
-            messages.error(request, f"خطا از سمت مدل: {response.status_code} - {response.text}")
+            messages.error(request, f"خطا از سمت مدل DeepSeek: {response.status_code} - {response.text}")
 
     except Exception as e:
-        messages.error(request, f"خطا در ارتباط با مدل: {str(e)}")
+        messages.error(request, f"خطا در ارتباط با مدل DeepSeek: {str(e)}")
 
     return redirect('weekly_schedule')
